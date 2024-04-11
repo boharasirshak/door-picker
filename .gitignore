@@ -1,3 +1,10 @@
 venv
-imgs
+images
 ref
+*.spec
+build-config.json
+dist/
+output/
+build/
+*.sh
+*.json
