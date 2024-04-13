@@ -3,8 +3,13 @@ from sys import exit
 
 import sqlite3
 import warnings
-from tkinter import messagebox
+
 from typing import Tuple, Callable
+from tkinter import messagebox, filedialog
+
+import openpyxl
+from openpyxl.styles import Border, Side
+from openpyxl.drawing.image import Image as OpenpyxlImage
 
 from PIL import Image
 from tksheet import Sheet
@@ -23,8 +28,18 @@ if not os.path.exists("data/db.db"):
     exit(1)
 
 
+if not os.path.exists("results"):
+    os.makedirs("results")
+
+
 conn = sqlite3.connect("data/db.db")
 cur = conn.cursor()
+thin_border = Border(
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
+)
 
 
 class InputFrame(ctk.CTkFrame):
@@ -36,68 +51,86 @@ class InputFrame(ctk.CTkFrame):
         handle_color_input: Callable,
         handle_handle_type_input: Callable,
         handle_profile_system_input: Callable,
+        widths=[],
+        heights=[],
     ):
         super().__init__(parent)
+        self.top_row = ctk.CTkFrame(self)
+        self.top_row.grid(row=0, column=0, sticky="nsew")
+        self.top_row.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
-        # Widgets for input frame
-        self.grid_columnconfigure((1, 3, 5, 7), weight=1)  # Empty columns for spacing
-
-        self.height_label = ctk.CTkLabel(self, text="Высота:")
-        self.height_label.grid(row=0, column=2, padx=10, pady=10)
-        self.height_entry = ctk.CTkEntry(self, width=120)
-        self.height_entry.grid(row=0, column=4, padx=10, pady=10)
-        self.height_entry.bind(
-            "<KeyPress>", command=lambda x: handle_height_input(x, self.height_entry)
+        self.height_label = ctk.CTkLabel(self.top_row, text="Высота:")
+        self.height_label.grid(row=0, column=0, padx=10, pady=10)
+        self.height_entry = ctk.CTkComboBox(
+            self.top_row,
+            values=heights,
+            command=lambda event: handle_height_input(event, self.height_entry),
+            width=190,
         )
+        self.height_entry.grid(row=0, column=1, padx=10, pady=10)
 
-        self.width_label = ctk.CTkLabel(self, text="Ширина:")
-        self.width_label.grid(row=0, column=6, padx=10, pady=10)
-        self.width_entry = ctk.CTkEntry(self, width=120)
-        self.width_entry.grid(row=0, column=8, padx=10, pady=10)
-        self.width_entry.bind(
-            "<KeyPress>", command=lambda x: handle_width_input(x, self.width_entry)
+        self.width_label = ctk.CTkLabel(self.top_row, text="Ширина:")
+        self.width_label.grid(row=0, column=2, padx=10, pady=10)
+        self.width_entry = ctk.CTkComboBox(
+            self.top_row,
+            values=widths,
+            command=lambda event: handle_width_input(event, self.width_entry),
+            width=230,
         )
+        self.width_entry.grid(row=0, column=3, padx=10, pady=10)
 
-        # Dropdowns for Color, Handle Type, and Profile System
-        self.color_label = ctk.CTkLabel(self, text="Цвет:")
-        self.color_label.grid(row=1, column=2, padx=10, pady=10)
+        # Bottom row for Color, Handle Type, and Profile System
+        self.bottom_row = ctk.CTkFrame(self)
+        self.bottom_row.grid(row=1, column=0, sticky="nsew")
+        self.bottom_row.grid_columnconfigure((0, 1, 2), weight=1)
+
+        self.color_label = ctk.CTkLabel(self.bottom_row, text="Цвет:")
+        self.color_label.grid(row=0, column=0, padx=10, pady=10)
         self.color_dropdown = ctk.CTkComboBox(
-            self,
+            self.bottom_row,
             values=["белый", "чёрный", "серебро", "без окраса"],
-            command=lambda x: handle_color_input(x, self.color_dropdown),
+            command=lambda event: handle_color_input(event, self.color_dropdown),
         )
-        self.color_dropdown.grid(row=1, column=4, padx=10, pady=10, sticky="ew")
+        self.color_dropdown.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
 
-        self.handle_type_label = ctk.CTkLabel(self, text="Ручка:")
-        self.handle_type_label.grid(row=1, column=6, padx=10, pady=10)
+        self.handle_type_label = ctk.CTkLabel(self.bottom_row, text="Ручка:")
+        self.handle_type_label.grid(row=0, column=2, padx=10, pady=10)
         self.handle_type_dropdown = ctk.CTkComboBox(
-            self,
+            self.bottom_row,
             values=["", "2-ст руч"],
-            command=lambda x: handle_handle_type_input(x, self.handle_type_dropdown),
+            command=lambda event: handle_handle_type_input(
+                event, self.handle_type_dropdown
+            ),
         )
-        self.handle_type_dropdown.grid(row=1, column=8, padx=10, pady=10, sticky="ew")
+        self.handle_type_dropdown.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
 
-        self.profile_system_label = ctk.CTkLabel(self, text="Профильная система:")
-        self.profile_system_label.grid(row=1, column=10, padx=10, pady=10)
+        self.profile_system_label = ctk.CTkLabel(
+            self.bottom_row, text="Профильная система:"
+        )
+        self.profile_system_label.grid(row=0, column=4, padx=10, pady=10)
         self.profile_system_dropdown = ctk.CTkComboBox(
-            self,
+            self.bottom_row,
             values=[
                 "Alumark S70",
                 "Alutech W62,W72",
                 "Krauss KRWD64",
                 "Татпроф ТПТ 65",
             ],
-            command=lambda x: handle_profile_system_input(
-                x, self.profile_system_dropdown
+            command=lambda event: handle_profile_system_input(
+                event, self.profile_system_dropdown
             ),
         )
         self.profile_system_dropdown.grid(
-            row=1, column=12, padx=10, pady=10, sticky="ew"
+            row=0, column=5, padx=10, pady=10, sticky="ew"
         )
+
+        # Configure the main frame's row weights
+        self.grid_rowconfigure(0, weight=1)  # Top row
+        self.grid_rowconfigure(1, weight=1)  # Bottom row
 
 
 class ImageFrame(ctk.CTkFrame):
-    def __init__(self, master, size: Tuple[int, int] = (30, 30)):
+    def __init__(self, master, size: Tuple[int, int] = (160, 160)):
         super().__init__(master)
         self.size = size
 
@@ -124,7 +157,7 @@ class ImageRowFrame(ctk.CTkScrollableFrame):
 
         number_of_images = len(image_paths)
         self.number_of_images = number_of_images
-        images_per_row = 4
+        images_per_row = 3
         number_of_rows = (number_of_images + images_per_row - 1) // images_per_row
 
         for row in range(number_of_rows):
@@ -139,9 +172,11 @@ class ImageRowFrame(ctk.CTkScrollableFrame):
                 image_path = image_paths[img_count]
                 img_frame = ImageFrame(
                     self,
-                    size=(WIDTH / images_per_row, HEIGHT / number_of_rows),
                 )
-                img_frame.set_image(Image.open("data/imgs/" + image_path))
+                img = Image.open("data/imgs/" + image_path)
+                img.thumbnail((160, 160), Image.Resampling.LANCZOS)
+                img_frame.set_image(img)
+
                 img_btn = ctk.CTkButton(
                     self,
                     image=img_frame.image,
@@ -149,6 +184,7 @@ class ImageRowFrame(ctk.CTkScrollableFrame):
                     fg_color="transparent",
                     hover_color=("gray75", "gray25"),
                     text=image_path,
+                    text_color="gray25",
                 )
                 img_btn._command = lambda b=img_btn: self.handle_click(b)
                 img_btn.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
@@ -169,11 +205,6 @@ class ExcelFrame(ctk.CTkFrame):
                 "id",
                 "name",
                 "per unit",
-                "scheme",
-                "height",
-                "width",
-                "color",
-                "profile",
             ],
             # show_x_scrollbar=False,
             zoom=150,
@@ -209,8 +240,8 @@ class ButtonFrame(ctk.CTkFrame):
 
 
 class App(ctk.CTk):
-    height_input: str = ""
-    width_input: str = ""
+    height_input: str = "высота 630мм-2400мм"
+    width_input: str = "ширина створки до 3000мм"
     color_input: str = "белый"
     handle_type_input: str = ""
     profile_system_input: str = "Alumark S70"
@@ -227,6 +258,12 @@ class App(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
+        heights = cur.execute("SELECT DISTINCT height FROM products").fetchall() or []
+        widths = cur.execute("SELECT DISTINCT width FROM products").fetchall() or []
+
+        heights = [str(height[0]) for height in heights]
+        widths = [str(width[0]) for width in widths]
+
         self.input_frame = InputFrame(
             self,
             handle_height_input=self.handle_height_input,
@@ -234,6 +271,8 @@ class App(ctk.CTk):
             handle_color_input=self.handle_color_input,
             handle_handle_type_input=self.handle_handle_type_input,
             handle_profile_system_input=self.handle_profile_system_input,
+            heights=heights,
+            widths=widths,
         )
         self.input_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
@@ -259,16 +298,13 @@ class App(ctk.CTk):
 
         self.button_frame.grid_columnconfigure((0, 1), weight=1)
         self.button_frame.save_button.grid_configure(sticky="ew")
-
         self._search_data()
 
     def handle_height_input(self, event, entry: ctk.CTkEntry):
-        self._check_input(event, entry)
         self.height_input = entry.get()
         self._search_data()
 
     def handle_width_input(self, event, entry: ctk.CTkEntry):
-        self._check_input(event, entry)
         self.width_input = entry.get()
         self._search_data()
 
@@ -284,15 +320,6 @@ class App(ctk.CTk):
         self.profile_system_input = entry.get()
         self._search_data()
 
-    # TODO: fix the char checking!
-    def _check_input(self, event, entry: ctk.CTkEntry):
-        if entry.get().isnumeric():
-            entry.configure(border_color="gray74", text_color="white")
-            return True
-        else:
-            entry.configure(border_color="red", text_color="red")
-            return False
-
     def handle_img_click(self, btn: ctk.CTkButton):
         self.img_name = btn.cget("text")
 
@@ -304,53 +331,6 @@ class App(ctk.CTk):
                 img_btn.configure(bg_color="transparent")
 
         self._search_data()
-
-    def filter_data(self, sanitized_data):
-        filtered_data = []
-
-        if self.height_input == "" and self.width_input == "":
-            return sanitized_data
-
-        if self.height_input.isnumeric():
-            height = int(self.height_input)
-            for data in sanitized_data:
-                height_field = str(data[4])
-                if "-" in height_field:
-                    try:
-                        left_bound, right_bound = map(int, height_field.split("-"))
-                        if left_bound <= height <= right_bound:
-                            filtered_data.append(data)
-                    except ValueError:
-                        # Handle error if split does not result in two integers
-                        print("Error processing range:", height_field)
-                else:
-                    if height_field.isnumeric() and height == int(height_field):
-                        filtered_data.append(data)
-
-        # If height input is not numeric, assume all data passes the height filter
-        else:
-            filtered_data = sanitized_data.copy()
-
-        # Now filter by Width, reusing the list with height filtering applied
-        final_data = []
-        if self.width_input.isnumeric():
-            width = int(self.width_input)
-            for data in filtered_data:
-                width_field = str(data[5])
-                if "-" in width_field:
-                    try:
-                        left_bound, right_bound = map(int, width_field.split("-"))
-                        if left_bound <= width <= right_bound:
-                            final_data.append(data)
-                    except ValueError:
-                        print("Error processing range:", width_field)
-                else:
-                    if width_field.isnumeric() and width == int(width_field):
-                        final_data.append(data)
-        else:
-            final_data = filtered_data.copy()
-
-        return final_data
 
     def _search_data(self):
         res = cur.execute(
@@ -369,63 +349,184 @@ class App(ctk.CTk):
             FROM products p
             LEFT JOIN product_features pf ON p.id = pf.product_id
             LEFT JOIN features f ON pf.feature_id = f.id
-            WHERE color = ? AND handle_type = ? AND profile_system = ?
-        """,
-            (self.color_input, self.handle_type_input, self.profile_system_input),
+            WHERE color = ? AND handle_type = ? AND profile_system = ? AND height = ? AND width = ?
+            """,
+            (
+                self.color_input,
+                self.handle_type_input,
+                self.profile_system_input,
+                self.height_input,
+                self.width_input,
+            ),
         )
         all_data = res.fetchall()
         if not all_data:
-            return
+            all_data = []
 
         all_images = [data[8] for data in all_data]
         image_data = list(set(all_images))
-        sanitized_data = []
 
         if self.img_name != "*":
             all_data = [data for data in all_data if data[8] == self.img_name]
+            self.button_frame.save_button.configure(
+                text=f"Сохранить данные - {self.img_name.replace('.png', '')}"
+            )
+        else:
+            self.button_frame.save_button.configure(text="Сохранить данные")
+
+        excel_data = [data[:3] for data in all_data]
+        self.image_frame.update_images(image_data)
+        self.excel_frame.sheet.set_sheet_data(excel_data)
 
         self.all_data = all_data
 
-        for data in all_data:
-            data = list(data)
-            height = (
-                str(data[4])
-                .replace("высота", "")
-                .replace("мм", "")
-                .replace(" ", "")
-                .strip()
-            )
-            width = (
-                str(data[5])
-                .replace("ширина створки ", "")
-                .replace("мм", "")
-                .replace("до", "")
-                .replace(" ", "")
-                .strip()
-            )
-            data[4] = height
-            data[5] = width
-            sanitized_data.append(data)
+    def generate_excel(self, entries: dict):
+        for _, data in entries.items():
+            try:
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = f"{data['color']} {data['handle_type']}"
+                ws["A1"] = data["height"]
+                ws["B1"] = data["width"]
+                ws["B2"] = data["scheme"]
+                ws["B4"] = "наименование"
+                ws["C4"] = "артикул"
+                ws["D4"] = "на ед"
 
-        final_data = self.filter_data(sanitized_data)
-        del sanitized_data
+                ws["B4"].border = thin_border
+                ws["C4"].border = thin_border
+                ws["D4"].border = thin_border
 
-        excel_data = [data[:8] for data in final_data]
+                for i, feature in enumerate(data["features"], start=5):
+                    ws[f"B{i}"] = feature["name"]
+                    ws[f"C{i}"] = feature["id"]
+                    ws[f"D{i}"] = feature["per_unit"]
+                    ws[f"B{i}"].border = thin_border
+                    ws[f"C{i}"].border = thin_border
+                    ws[f"D{i}"].border = thin_border
 
-        self.image_frame.update_images(image_data)
-        self.excel_frame.sheet.set_sheet_data(excel_data)
-        self.all_data = final_data
+                img_path = os.path.join("data", "imgs", data["image_path"])
+                if not os.path.exists(img_path):
+                    messagebox.showerror(
+                        "Изображение не найдено",
+                        f"Изображение {img_path} не найдено. Пожалуйста, свяжитесь с администраторами!",
+                    )
+                    continue
+
+                img = OpenpyxlImage(img_path)
+                ws.add_image(img, "F4")
+
+                fname = f"results/{data['profile']} - {data['color']} - {data['scheme']} - {data['height']} x {data['width']}.xlsx"
+
+                path = filedialog.asksaveasfilename(
+                    title="Сохраните файл Excel",
+                    defaultextension=".xlsx",
+                    confirmoverwrite=True,
+                    filetypes=[("Файлы Excel", "*.xlsx")],
+                    initialfile=fname,
+                )
+
+                wb.save(path)
+
+                messagebox.showinfo(
+                    "Успех",
+                    f"Успешно сохраненный файл",
+                )
+
+            except PermissionError:
+                messagebox.showerror(
+                    "Ошибка разрешения",
+                    "Пожалуйста, закройте файл Excel перед сохранением данных!",
+                )
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Ошибка",
+                    f"При сохранении данных произошла ошибка: {e}",
+                )
 
     def save_data(self):
-        print("Data saved/exported")
         entries = {}
 
         for data in self.all_data:
-            entries[data[-1]] = [*data]
+            product_id = data[-1]
 
-        print(entries)
+            product = (
+                cur.execute(
+                    """
+                SELECT 
+                    height, 
+                    width, 
+                    color, 
+                    handle_type, 
+                    image_path, 
+                    opening_scheme,
+                    profile_system
+                FROM products 
+                WHERE id = ?
+            """,
+                    [int(product_id)],
+                ).fetchone()
+                or None
+            )
+
+            if product is None:
+                messagebox.showerror(
+                    "не найдено",
+                    f"Товар с идентификатором {product_id} не найден в базе данных. Пожалуйста, свяжитесь с администраторами!",
+                )
+                continue
+
+            height, width, color, handle_type, img_path, scheme, profile = product
+
+            entries[product_id] = {
+                "height": height,
+                "width": width,
+                "color": color,
+                "handle_type": handle_type,
+                "image_path": img_path,
+                "scheme": scheme,
+                "profile": profile,
+                "features": [],
+            }
+
+            features = (
+                cur.execute(
+                    """
+                SELECT
+                    f.id,
+                    f.name,
+                    f.per_unit
+                FROM products p
+                LEFT JOIN product_features pf ON p.id = pf.product_id
+                LEFT JOIN features f ON pf.feature_id = f.id
+                WHERE p.id = ?
+            """,
+                    [int(product_id)],
+                ).fetchall()
+                or []
+            )
+
+            if len(features) == 0:
+                messagebox.showerror(
+                    "Нечего спасать",
+                    f"Продукт с идентификатором {product_id} не имеет характеристик в базе данных. Пожалуйста, свяжитесь с администраторами!",
+                )
+                continue
+
+            for feature in features:
+                entries[product_id]["features"].append(
+                    {
+                        "id": feature[0],
+                        "name": feature[1],
+                        "per_unit": feature[2],
+                    }
+                )
+
+        self.generate_excel(entries)
 
 
 if __name__ == "__main__":
+    ctk.set_default_color_theme("dark-blue")
     app = App()
     app.mainloop()
