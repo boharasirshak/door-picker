@@ -1,4 +1,6 @@
 import os
+from sys import exit
+
 import sqlite3
 import warnings
 from tkinter import messagebox
@@ -104,23 +106,16 @@ class ImageFrame(ctk.CTkFrame):
 
 
 class ImageRowFrame(ctk.CTkScrollableFrame):
-    def __init__(self, parent, images=[]):
+    def __init__(
+        self,
+        parent,
+        handle_click: Callable,
+        images=[],
+    ):
         super().__init__(parent)
-        self.img_frames = []
+        self.img_frames: list[ctk.CTkButton] = []
         self.update_images(images)
-
-    def handle_click(self, frame: ImageFrame):
-        new_img_frame = []
-
-        for img_frame in self.img_frames:
-            if frame == img_frame:
-                img_frame.configure(bg_color=("gray75", "gray25"))
-            else:
-                img_frame.configure(fg_color=("transparent"))
-
-            new_img_frame.append(img_frame)
-
-        self.img_frames = new_img_frame
+        self.handle_click = handle_click
 
     def update_images(self, image_paths: list[str]):
         for img_frame in self.img_frames:
@@ -147,17 +142,17 @@ class ImageRowFrame(ctk.CTkScrollableFrame):
                     size=(WIDTH / images_per_row, HEIGHT / number_of_rows),
                 )
                 img_frame.set_image(Image.open("data/imgs/" + image_path))
-                image_label = ctk.CTkButton(
+                img_btn = ctk.CTkButton(
                     self,
-                    text="",
                     image=img_frame.image,
                     bg_color="transparent",
                     fg_color="transparent",
-                    command=lambda img_frame=img_frame: self.handle_click(img_frame),
                     hover_color=("gray75", "gray25"),
+                    text=image_path,
                 )
-                image_label.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
-                self.img_frames.append(img_frame)
+                img_btn._command = lambda b=img_btn: self.handle_click(b)
+                img_btn.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+                self.img_frames.append(img_btn)
                 img_count += 1
 
 
@@ -172,13 +167,13 @@ class ExcelFrame(ctk.CTkFrame):
             self,
             header=[
                 "id",
-                "особенность",
-                "единица",
-                "схема",
-                "высота",
-                "ширина",
-                "цвет",
-                "имя",
+                "name",
+                "per unit",
+                "scheme",
+                "height",
+                "width",
+                "color",
+                "profile",
             ],
             # show_x_scrollbar=False,
             zoom=150,
@@ -192,25 +187,19 @@ class ExcelFrame(ctk.CTkFrame):
 
 
 class ButtonFrame(ctk.CTkFrame):
-    def __init__(self, parent, generate_data_callback, save_data_callback):
+    def __init__(self, parent, save_data_callback):
         super().__init__(parent)
-        self.generate_data_callback = generate_data_callback
         self.save_data_callback = save_data_callback
-
-        # Generate Data Button
-        self.generate_button = ctk.CTkButton(
-            self, text="Генерировать данные", command=self.on_generate_data
-        )
-        self.generate_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
         # Save Data Button
         self.save_button = ctk.CTkButton(
             self, text="Сохранить данные", command=self.on_save_data
         )
-        self.save_button.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+        self.save_button.grid(
+            row=0, column=0, padx=10, pady=10, sticky="nsew", columnspan=2
+        )
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=1)
 
     def on_generate_data(self):
         self.generate_data_callback()
@@ -220,11 +209,13 @@ class ButtonFrame(ctk.CTkFrame):
 
 
 class App(ctk.CTk):
-    height_input: str
-    width_input: str
+    height_input: str = ""
+    width_input: str = ""
     color_input: str = "белый"
     handle_type_input: str = ""
     profile_system_input: str = "Alumark S70"
+    img_name: str = "*"
+    all_data = []
 
     def __init__(self, fg_color: str | Tuple[str, str] | None = None, **kwargs):
         super().__init__(fg_color, **kwargs)
@@ -249,7 +240,9 @@ class App(ctk.CTk):
         self.input_frame.grid_columnconfigure(0, weight=1)
         self.input_frame.grid_columnconfigure(3, weight=1)
 
-        self.image_frame = ImageRowFrame(self, images=[])
+        self.image_frame = ImageRowFrame(
+            self, images=[], handle_click=self.handle_img_click
+        )
 
         self.image_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
@@ -261,21 +254,23 @@ class App(ctk.CTk):
         )
         self.grid_rowconfigure(2, weight=3)
 
-        self.button_frame = ButtonFrame(self, self.generate_data, self.save_data)
+        self.button_frame = ButtonFrame(self, self.save_data)
         self.button_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
 
         self.button_frame.grid_columnconfigure((0, 1), weight=1)
-        self.button_frame.generate_button.grid_configure(sticky="ew")
         self.button_frame.save_button.grid_configure(sticky="ew")
 
         self._search_data()
 
-    # TODO: fix the char checking!
     def handle_height_input(self, event, entry: ctk.CTkEntry):
-        self._handle_input_color(event, entry)
+        self._check_input(event, entry)
+        self.height_input = entry.get()
+        self._search_data()
 
     def handle_width_input(self, event, entry: ctk.CTkEntry):
-        self._handle_input_color(event, entry)
+        self._check_input(event, entry)
+        self.width_input = entry.get()
+        self._search_data()
 
     def handle_color_input(self, event, entry: ctk.CTkComboBox):
         self.color_input = entry.get()
@@ -289,14 +284,73 @@ class App(ctk.CTk):
         self.profile_system_input = entry.get()
         self._search_data()
 
-    def _handle_input_color(self, event, entry: ctk.CTkEntry):
-        if entry.get() == "":
+    # TODO: fix the char checking!
+    def _check_input(self, event, entry: ctk.CTkEntry):
+        if entry.get().isnumeric():
             entry.configure(border_color="gray74", text_color="white")
-        elif not str(entry.get()).isnumeric():
-            entry.configure(border_color="red", text_color="red")
+            return True
         else:
-            entry.configure(border_color="gray74", text_color="white")
-            self.width_input = entry.get()
+            entry.configure(border_color="red", text_color="red")
+            return False
+
+    def handle_img_click(self, btn: ctk.CTkButton):
+        self.img_name = btn.cget("text")
+
+        # TODO: Fix the hover color
+        for img_btn in self.image_frame.img_frames:
+            if img_btn.cget("text") == self.img_name:
+                img_btn.configure(bg_color="black")
+            else:
+                img_btn.configure(bg_color="transparent")
+
+        self._search_data()
+
+    def filter_data(self, sanitized_data):
+        filtered_data = []
+
+        if self.height_input == "" and self.width_input == "":
+            return sanitized_data
+
+        if self.height_input.isnumeric():
+            height = int(self.height_input)
+            for data in sanitized_data:
+                height_field = str(data[4])
+                if "-" in height_field:
+                    try:
+                        left_bound, right_bound = map(int, height_field.split("-"))
+                        if left_bound <= height <= right_bound:
+                            filtered_data.append(data)
+                    except ValueError:
+                        # Handle error if split does not result in two integers
+                        print("Error processing range:", height_field)
+                else:
+                    if height_field.isnumeric() and height == int(height_field):
+                        filtered_data.append(data)
+
+        # If height input is not numeric, assume all data passes the height filter
+        else:
+            filtered_data = sanitized_data.copy()
+
+        # Now filter by Width, reusing the list with height filtering applied
+        final_data = []
+        if self.width_input.isnumeric():
+            width = int(self.width_input)
+            for data in filtered_data:
+                width_field = str(data[5])
+                if "-" in width_field:
+                    try:
+                        left_bound, right_bound = map(int, width_field.split("-"))
+                        if left_bound <= width <= right_bound:
+                            final_data.append(data)
+                    except ValueError:
+                        print("Error processing range:", width_field)
+                else:
+                    if width_field.isnumeric() and width == int(width_field):
+                        final_data.append(data)
+        else:
+            final_data = filtered_data.copy()
+
+        return final_data
 
     def _search_data(self):
         res = cur.execute(
@@ -310,7 +364,8 @@ class App(ctk.CTk):
             p.width,
             p.color,
             p.profile_system,
-            p.image_path
+            p.image_path,
+            p.id
             FROM products p
             LEFT JOIN product_features pf ON p.id = pf.product_id
             LEFT JOIN features f ON pf.feature_id = f.id
@@ -318,23 +373,57 @@ class App(ctk.CTk):
         """,
             (self.color_input, self.handle_type_input, self.profile_system_input),
         )
-        data = res.fetchall()
-        if not data:
+        all_data = res.fetchall()
+        if not all_data:
             return
 
-        excel_data = [data[:8] for data in data]
-        all_images = [data[8] for data in data]
+        all_images = [data[8] for data in all_data]
         image_data = list(set(all_images))
+        sanitized_data = []
+
+        if self.img_name != "*":
+            all_data = [data for data in all_data if data[8] == self.img_name]
+
+        self.all_data = all_data
+
+        for data in all_data:
+            data = list(data)
+            height = (
+                str(data[4])
+                .replace("высота", "")
+                .replace("мм", "")
+                .replace(" ", "")
+                .strip()
+            )
+            width = (
+                str(data[5])
+                .replace("ширина створки ", "")
+                .replace("мм", "")
+                .replace("до", "")
+                .replace(" ", "")
+                .strip()
+            )
+            data[4] = height
+            data[5] = width
+            sanitized_data.append(data)
+
+        final_data = self.filter_data(sanitized_data)
+        del sanitized_data
+
+        excel_data = [data[:8] for data in final_data]
+
         self.image_frame.update_images(image_data)
         self.excel_frame.sheet.set_sheet_data(excel_data)
-
-    def generate_data(self):
-        # Placeholder for data generation logic
-        print("Data generated")
+        self.all_data = final_data
 
     def save_data(self):
-        # Placeholder for save/export logic
         print("Data saved/exported")
+        entries = {}
+
+        for data in self.all_data:
+            entries[data[-1]] = [*data]
+
+        print(entries)
 
 
 if __name__ == "__main__":
