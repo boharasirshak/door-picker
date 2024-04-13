@@ -416,7 +416,7 @@ class App(ctk.CTk):
                 img = OpenpyxlImage(img_path)
                 ws.add_image(img, "F4")
 
-                fname = f"results/{data['profile']} - {data['color']} - {data['scheme']} - {data['height']} x {data['width']}.xlsx"
+                fname = f"{data['profile']} - {data['color']} - {data['scheme']} - {data['height']} x {data['width']}.xlsx"
 
                 path = filedialog.asksaveasfilename(
                     title="Сохраните файл Excel",
