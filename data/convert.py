@@ -15,18 +15,6 @@ cur = conn.cursor()
 
 res = cur.execute(
     """
-CREATE TABLE IF NOT EXISTS `features` (
-    `id` INTEGER PRIMARY KEY,
-    `name` TEXT NOT NULL,
-    `per_unit` INTEGER NOT NULL
-);
-"""
-)
-if res:
-    print("Features created successfully")
-
-res = cur.execute(
-    """
 CREATE TABLE IF NOT EXISTS `products` (
     `id` INTEGER PRIMARY KEY AUTOINCREMENT,
     `name` TEXT NOT NULL,
@@ -40,22 +28,26 @@ CREATE TABLE IF NOT EXISTS `products` (
 );
 """
 )
+
 if res:
     print("Products created successfully")
 
 res = cur.execute(
     """
-CREATE TABLE IF NOT EXISTS `product_features` (
-    `product_id` INTEGER NOT NULL,
-    `feature_id` INTEGER NOT NULL,
-    FOREIGN KEY (`product_id`) REFERENCES `products`(`id`),
-    FOREIGN KEY (`feature_id`) REFERENCES `features`(`id`),
-    PRIMARY KEY (`product_id`, `feature_id`)
+CREATE TABLE IF NOT EXISTS `features` (
+    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+    `external_id` INTEGER NOT NULL,
+    `name` TEXT NOT NULL,
+    `per_unit` INTEGER NOT NULL,
+    `product_id` INTEGER,
+    FOREIGN KEY (product_id) REFERENCES products(id)
 );
 """
 )
+
 if res:
-    print("Product Features created successfully")
+    print("Features created successfully")
+
 
 conn.commit()
 
@@ -89,17 +81,9 @@ class CustomExcelReader:
 
             print(f"Inserting ({idx}) {name} - {unit}  into {product_id}")
             cur.execute(
-                "INSERT OR IGNORE INTO features (name, id, per_unit) VALUES (?, ?, ?)",
-                (name, idx, unit),
+                "INSERT OR IGNORE INTO features (name, external_id, per_unit, product_id) VALUES (?, ?, ?, ?)",
+                (name, idx, unit, product_id),
             )
-            conn.commit()
-
-            print(f"Inserting product_id: {product_id} & feature_id: {idx}")
-            cur.execute(
-                "INSERT OR IGNORE INTO product_features (product_id, feature_id) VALUES (?, ?)",
-                (product_id, idx),
-            )
-
             conn.commit()
             gap += 1
 
@@ -124,7 +108,14 @@ class CustomExcelReader:
                 # only works for one digit comma seperated schemes x,x,x
                 image_type = opening_scheme[:5]
 
-                opening_scheme = " ".join(opening_scheme.split())
+                opening_scheme = opening_scheme.split()
+                if len(opening_scheme) == 3:
+                    opening_scheme = (
+                        f"{opening_scheme[0]} ({opening_scheme[1]} {opening_scheme[2]})"
+                    )
+                else:
+                    opening_scheme = f"{opening_scheme[0]} (1 комплект)"
+
                 color_cell = values[i + 1][4]
 
                 if color_cell is not None:

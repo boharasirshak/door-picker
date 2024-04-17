@@ -336,7 +336,7 @@ class App(ctk.CTk):
         res = cur.execute(
             """
             SELECT 
-            f.id,
+            f.external_id as id,
             f.name,
             f.per_unit, 
             p.opening_scheme,
@@ -345,10 +345,9 @@ class App(ctk.CTk):
             p.color,
             p.profile_system,
             p.image_path,
-            p.id
+            p.id as product_id
             FROM products p
-            LEFT JOIN product_features pf ON p.id = pf.product_id
-            LEFT JOIN features f ON pf.feature_id = f.id
+            LEFT JOIN features f ON f.product_id = p.id
             WHERE color = ? AND handle_type = ? AND profile_system = ? AND height = ? AND width = ?
             """,
             (
@@ -494,12 +493,11 @@ class App(ctk.CTk):
                 cur.execute(
                     """
                 SELECT
-                    f.id,
+                    f.external_id as id,
                     f.name,
                     f.per_unit
                 FROM products p
-                LEFT JOIN product_features pf ON p.id = pf.product_id
-                LEFT JOIN features f ON pf.feature_id = f.id
+                LEFT JOIN features f ON f.product_id = p.id
                 WHERE p.id = ?
             """,
                     [int(product_id)],
