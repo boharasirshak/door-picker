@@ -84,7 +84,6 @@ class CustomExcelReader:
                 "INSERT OR IGNORE INTO features (name, external_id, per_unit, product_id) VALUES (?, ?, ?, ?)",
                 (name, idx, unit, product_id),
             )
-            conn.commit()
             gap += 1
 
     def extract_products(self, sheet_name: str):
@@ -104,6 +103,7 @@ class CustomExcelReader:
 
             if height is not None and width is not None:
                 opening_scheme = values[i + 1][1]
+                width = str(width).replace("створки ", "")
 
                 # only works for one digit comma seperated schemes x,x,x
                 image_type = opening_scheme[:5]
@@ -156,6 +156,7 @@ class CustomExcelReader:
                 conn.commit()
                 product_id = cur.lastrowid
                 self.extract_features(values, product_id, i)
+                conn.commit()
 
     def read_file(self):
         sheets = [
