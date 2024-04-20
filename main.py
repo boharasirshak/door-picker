@@ -51,6 +51,7 @@ class InputFrame(ctk.CTkFrame):
         handle_color_input: Callable,
         handle_handle_type_input: Callable,
         handle_profile_system_input: Callable,
+        handle_multiplier_input: Callable,
         widths=[],
         heights=[],
     ):
@@ -123,6 +124,17 @@ class InputFrame(ctk.CTkFrame):
         self.profile_system_dropdown.grid(
             row=0, column=5, padx=10, pady=10, sticky="ew"
         )
+
+        self.multipler_label = ctk.CTkLabel(self.bottom_row, text="Quantity:")
+        self.multipler_label.grid(row=0, column=0, padx=10, pady=10)
+        self.multiplier_dropdown = ctk.CTkComboBox(
+            self.bottom_row,
+            values=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+            command=lambda event: handle_multiplier_input(
+                event, self.multiplier_dropdown
+            ),
+        )
+        self.multiplier_dropdown.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
 
         # Configure the main frame's row weights
         self.grid_rowconfigure(0, weight=1)  # Top row
@@ -241,11 +253,12 @@ class ButtonFrame(ctk.CTkFrame):
 
 class App(ctk.CTk):
     height_input: str = "высота 630мм-2400мм"
-    width_input: str = "ширина створки до 3000мм"
+    width_input: str = "ширина до 3000мм"
     color_input: str = "белый"
     handle_type_input: str = ""
     profile_system_input: str = "Alumark S70"
     img_name: str = "*"
+    multiplier_input: str = "1"
     all_data = []
 
     def __init__(self, fg_color: str | Tuple[str, str] | None = None, **kwargs):
@@ -271,6 +284,7 @@ class App(ctk.CTk):
             handle_color_input=self.handle_color_input,
             handle_handle_type_input=self.handle_handle_type_input,
             handle_profile_system_input=self.handle_profile_system_input,
+            handle_multiplier_input=self.handle_multiplier_input,
             heights=heights,
             widths=widths,
         )
@@ -318,6 +332,10 @@ class App(ctk.CTk):
 
     def handle_profile_system_input(self, event, entry: ctk.CTkComboBox):
         self.profile_system_input = entry.get()
+        self._search_data()
+
+    def handle_multiplier_input(self, event, entry: ctk.CTkComboBox):
+        self.multiplier_input = entry.get()
         self._search_data()
 
     def handle_img_click(self, btn: ctk.CTkButton):
@@ -373,13 +391,28 @@ class App(ctk.CTk):
         else:
             self.button_frame.save_button.configure(text="Сохранить данные")
 
-        excel_data = [data[:3] for data in all_data]
+        excel_data = [list(data[:3]) for data in all_data]
+
+        multiplier = (
+            1 if not self.multiplier_input.isdigit() else int(self.multiplier_input)
+        )
+
+        for data in excel_data:
+            if str(data[2]).isdigit():
+                data[2] = int(data[2]) * multiplier
+
         self.image_frame.update_images(image_data)
         self.excel_frame.sheet.set_sheet_data(excel_data)
 
         self.all_data = all_data
 
     def generate_excel(self, entries: dict):
+        multiplier = (
+            1
+            if not str(self.multiplier_input).isdigit()
+            else int(self.multiplier_input)
+        )
+
         for _, data in entries.items():
             try:
                 wb = openpyxl.Workbook()
@@ -399,7 +432,13 @@ class App(ctk.CTk):
                 for i, feature in enumerate(data["features"], start=5):
                     ws[f"B{i}"] = feature["name"]
                     ws[f"C{i}"] = feature["id"]
-                    ws[f"D{i}"] = feature["per_unit"]
+                    per_unit = str(feature["per_unit"])
+
+                    if per_unit and per_unit.isdigit():
+                        ws[f"D{i}"] = int(per_unit) * multiplier
+                    else:
+                        ws[f"D{i}"] = feature["per_unit"]
+
                     ws[f"B{i}"].border = thin_border
                     ws[f"C{i}"].border = thin_border
                     ws[f"D{i}"].border = thin_border
