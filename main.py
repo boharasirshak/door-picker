@@ -17,7 +17,7 @@ import customtkinter as ctk
 
 warnings.filterwarnings("ignore")
 
-WIDTH = 800
+WIDTH = 900
 HEIGHT = 600
 
 if not os.path.exists("data/db.db"):
@@ -58,7 +58,8 @@ class InputFrame(ctk.CTkFrame):
         super().__init__(parent)
         self.top_row = ctk.CTkFrame(self)
         self.top_row.grid(row=0, column=0, sticky="nsew")
-        self.top_row.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.top_row.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
         self.height_label = ctk.CTkLabel(self.top_row, text="Высота:")
         self.height_label.grid(row=0, column=0, padx=10, pady=10)
@@ -81,7 +82,7 @@ class InputFrame(ctk.CTkFrame):
         self.width_entry.grid(row=0, column=3, padx=5, pady=5)
 
         # Bottom row for Color, Handle Type, and Profile System
-        self.bottom_row = ctk.CTkFrame(self)
+        self.bottom_row = ctk.CTkFrame(self, width=WIDTH)
         self.bottom_row.grid(row=1, column=0, sticky="nsew")
         self.bottom_row.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
@@ -214,11 +215,7 @@ class ExcelFrame(ctk.CTkFrame):
         # self.excel_data_label.grid(row=0, column=0, padx=10, pady=10)
         self.sheet = Sheet(
             self,
-            header=[
-                "id",
-                "name",
-                "per unit",
-            ],
+            header=["id", "name", "per unit", "Общий"],
             # show_x_scrollbar=False,
             zoom=150,
             data=[],
@@ -289,10 +286,10 @@ class App(ctk.CTk):
             heights=heights,
             widths=widths,
         )
-        self.input_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        self.input_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
 
-        self.input_frame.grid_columnconfigure(0, weight=1)
-        self.input_frame.grid_columnconfigure(3, weight=1)
+        self.input_frame.grid_columnconfigure(0, weight=2)
+        self.input_frame.grid_columnconfigure(3, weight=2)
 
         self.image_frame = ImageRowFrame(
             self, images=[], handle_click=self.handle_img_click
@@ -410,7 +407,9 @@ class App(ctk.CTk):
 
         for data in excel_data:
             if str(data[2]).isdigit():
-                data[2] = int(data[2]) * multiplier
+                data.append(int(data[2] * multiplier))
+            else:
+                data.append(data[2])
 
         self.image_frame.update_images(image_data)
         self.excel_frame.sheet.set_sheet_data(excel_data)
@@ -435,24 +434,28 @@ class App(ctk.CTk):
                 ws["B4"] = "наименование"
                 ws["C4"] = "артикул"
                 ws["D4"] = "на ед"
+                ws["E4"] = "Общий"
 
                 ws["B4"].border = thin_border
                 ws["C4"].border = thin_border
                 ws["D4"].border = thin_border
+                ws["E4"].border = thin_border
 
                 for i, feature in enumerate(data["features"], start=5):
                     ws[f"B{i}"] = feature["name"]
                     ws[f"C{i}"] = feature["id"]
+                    ws[f"D{i}"] = feature["per_unit"]
                     per_unit = str(feature["per_unit"])
 
                     if per_unit and per_unit.isdigit():
-                        ws[f"D{i}"] = int(per_unit) * multiplier
+                        ws[f"E{i}"] = int(per_unit) * multiplier
                     else:
-                        ws[f"D{i}"] = feature["per_unit"]
+                        ws[f"E{i}"] = feature["per_unit"]
 
                     ws[f"B{i}"].border = thin_border
                     ws[f"C{i}"].border = thin_border
                     ws[f"D{i}"].border = thin_border
+                    ws[f"E{i}"].border = thin_border
 
                 img_path = os.path.join("data", "imgs", data["image_path"])
                 if not os.path.exists(img_path):
@@ -463,7 +466,7 @@ class App(ctk.CTk):
                     continue
 
                 img = OpenpyxlImage(img_path)
-                ws.add_image(img, "F4")
+                ws.add_image(img, "G4")
 
                 fname = f"{data['profile']} - {data['color']} - {data['scheme']} - {data['height']} x {data['width']}.xlsx"
 
