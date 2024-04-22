@@ -58,7 +58,7 @@ class InputFrame(ctk.CTkFrame):
         super().__init__(parent)
         self.top_row = ctk.CTkFrame(self)
         self.top_row.grid(row=0, column=0, sticky="nsew")
-        self.top_row.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        self.top_row.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
 
         self.height_label = ctk.CTkLabel(self.top_row, text="Высота:")
         self.height_label.grid(row=0, column=0, padx=10, pady=10)
@@ -68,47 +68,49 @@ class InputFrame(ctk.CTkFrame):
             command=lambda event: handle_height_input(event, self.height_entry),
             width=190,
         )
-        self.height_entry.grid(row=0, column=1, padx=10, pady=10)
+        self.height_entry.grid(row=0, column=1, padx=5, pady=5)
 
         self.width_label = ctk.CTkLabel(self.top_row, text="Ширина:")
-        self.width_label.grid(row=0, column=2, padx=10, pady=10)
+        self.width_label.grid(row=0, column=2, padx=5, pady=5)
         self.width_entry = ctk.CTkComboBox(
             self.top_row,
             values=widths,
             command=lambda event: handle_width_input(event, self.width_entry),
             width=230,
         )
-        self.width_entry.grid(row=0, column=3, padx=10, pady=10)
+        self.width_entry.grid(row=0, column=3, padx=5, pady=5)
 
         # Bottom row for Color, Handle Type, and Profile System
         self.bottom_row = ctk.CTkFrame(self)
         self.bottom_row.grid(row=1, column=0, sticky="nsew")
-        self.bottom_row.grid_columnconfigure((0, 1, 2), weight=1)
+        self.bottom_row.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
         self.color_label = ctk.CTkLabel(self.bottom_row, text="Цвет:")
-        self.color_label.grid(row=0, column=0, padx=10, pady=10)
+        self.color_label.grid(row=0, column=0, padx=5, pady=5)
         self.color_dropdown = ctk.CTkComboBox(
             self.bottom_row,
             values=["белый", "чёрный", "серебро", "без окраса"],
             command=lambda event: handle_color_input(event, self.color_dropdown),
+            width=120,
         )
         self.color_dropdown.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
 
         self.handle_type_label = ctk.CTkLabel(self.bottom_row, text="Ручка:")
-        self.handle_type_label.grid(row=0, column=2, padx=10, pady=10)
+        self.handle_type_label.grid(row=0, column=2, padx=5, pady=5)
         self.handle_type_dropdown = ctk.CTkComboBox(
             self.bottom_row,
             values=["", "2-ст руч"],
             command=lambda event: handle_handle_type_input(
                 event, self.handle_type_dropdown
             ),
+            width=100,
         )
-        self.handle_type_dropdown.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
+        self.handle_type_dropdown.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
 
         self.profile_system_label = ctk.CTkLabel(
             self.bottom_row, text="Профильная система:"
         )
-        self.profile_system_label.grid(row=0, column=4, padx=10, pady=10)
+        self.profile_system_label.grid(row=0, column=4, padx=5, pady=5)
         self.profile_system_dropdown = ctk.CTkComboBox(
             self.bottom_row,
             values=[
@@ -121,20 +123,19 @@ class InputFrame(ctk.CTkFrame):
                 event, self.profile_system_dropdown
             ),
         )
-        self.profile_system_dropdown.grid(
-            row=0, column=5, padx=10, pady=10, sticky="ew"
-        )
+        self.profile_system_dropdown.grid(row=0, column=5, padx=5, pady=5, sticky="ew")
 
-        self.multipler_label = ctk.CTkLabel(self.bottom_row, text="Quantity:")
-        self.multipler_label.grid(row=0, column=0, padx=10, pady=10)
+        self.multipler_label = ctk.CTkLabel(self.bottom_row, text="Количество:")
+        self.multipler_label.grid(row=0, column=6, padx=5, pady=5)
         self.multiplier_dropdown = ctk.CTkComboBox(
             self.bottom_row,
             values=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
             command=lambda event: handle_multiplier_input(
                 event, self.multiplier_dropdown
             ),
+            width=60,
         )
-        self.multiplier_dropdown.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
+        self.multiplier_dropdown.grid(row=0, column=7, padx=5, pady=5, sticky="ew")
 
         # Configure the main frame's row weights
         self.grid_rowconfigure(0, weight=1)  # Top row
@@ -351,8 +352,18 @@ class App(ctk.CTk):
         self._search_data()
 
     def _search_data(self):
+        if "-" in self.width_input:
+            widths = self.width_input.split("-")
+            first = widths[0].strip().replace("ширина", "").strip()
+            last = widths[1].strip().replace("мм", "").strip()
+            width_input = [f"ширина до {first}мм", f"ширина до {last}мм"]
+        else:
+            width_input = [self.width_input]
+
+        placeholders = ", ".join("?" for _ in width_input)
+
         res = cur.execute(
-            """
+            f"""
             SELECT 
             f.external_id as id,
             f.name,
@@ -366,14 +377,14 @@ class App(ctk.CTk):
             p.id as product_id
             FROM products p
             LEFT JOIN features f ON f.product_id = p.id
-            WHERE color = ? AND handle_type = ? AND profile_system = ? AND height = ? AND width = ?
+            WHERE color = ? AND handle_type = ? AND profile_system = ? AND height = ? AND width IN ({placeholders})
             """,
             (
                 self.color_input,
                 self.handle_type_input,
                 self.profile_system_input,
                 self.height_input,
-                self.width_input,
+                *width_input,
             ),
         )
         all_data = res.fetchall()
