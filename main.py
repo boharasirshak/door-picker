@@ -265,15 +265,22 @@ class App(ctk.CTk):
         self.title("Система определения конфигурации двери")
         self.geometry(f"{WIDTH}x{HEIGHT}")
         self.resizable(False, False)
+        self.iconbitmap("data/logo.ico")
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
         heights = cur.execute("SELECT DISTINCT height FROM products").fetchall() or []
-        widths = cur.execute("SELECT DISTINCT width FROM products").fetchall() or []
-
         heights = [str(height[0]) for height in heights]
-        widths = [str(width[0]) for width in widths]
+        widths = [
+            "ширина до 3000мм",
+            "ширина до 4000мм",
+            "ширина до 5000мм",
+            "ширина до 6000мм",
+            # "ширина 3000 - 4000мм",
+            # "ширина 4000 - 5000мм",
+            # "ширина 5000 - 6000мм",
+        ]
 
         self.input_frame = InputFrame(
             self,
@@ -349,11 +356,15 @@ class App(ctk.CTk):
         self._search_data()
 
     def _search_data(self):
-        if "-" in self.width_input:
-            widths = self.width_input.split("-")
-            first = widths[0].strip().replace("ширина", "").strip()
-            last = widths[1].strip().replace("мм", "").strip()
-            width_input = [f"ширина до {first}мм", f"ширина до {last}мм"]
+        if self.width_input == "ширина до 4000мм":
+            width_input = ["ширина 3000 - 4000мм", "ширина до 4000мм"]
+
+        elif self.width_input == "ширина до 5000мм":
+            width_input = ["ширина 4000 - 5000мм", "ширина до 5000мм"]
+
+        elif self.width_input == "ширина до 6000мм":
+            width_input = ["ширина 5000 - 6000мм", "ширина до 6000мм"]
+
         else:
             width_input = [self.width_input]
 
@@ -386,6 +397,13 @@ class App(ctk.CTk):
         )
         all_data = res.fetchall()
         if not all_data:
+            # print(
+            #     self.color_input,
+            #     self.handle_type_input,
+            #     self.profile_system_input,
+            #     self.height_input,
+            #     width_input,
+            # )
             all_data = []
 
         all_images = [data[8] for data in all_data]
