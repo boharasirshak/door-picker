@@ -3,6 +3,7 @@ from sys import exit
 
 import sqlite3
 import warnings
+import darkdetect
 
 from typing import Tuple, Callable
 from tkinter import messagebox, filedialog
@@ -220,7 +221,7 @@ class ExcelFrame(ctk.CTkFrame):
             zoom=150,
             data=[],
             width=WIDTH + 165,
-            theme="dark",
+            theme="dark" if darkdetect.isDark() else "light blue",
             default_column_width=110,
         )
         self.sheet.enable_bindings()
