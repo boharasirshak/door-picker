@@ -53,13 +53,14 @@ conn.commit()
 
 
 class CustomExcelReader:
-    def __init__(self, path: str, sheets_prefix: str) -> None:
+    def __init__(self, path: str, sheets_prefix: str, debug: bool = False) -> None:
         self.path = path.split("/")[-1].replace(".xlsx", "")
         self.wb = load_workbook(filename=path, read_only=True)
         self.sheets = self.wb.sheetnames
         self.cols = string.ascii_uppercase
         self.sheets_prefix = sheets_prefix
         self.MAX_GAP = 20
+        self.debug = debug
 
     def extract_features(self, values: tuple, product_id: int, i: int):
         gap = 3
@@ -79,9 +80,11 @@ class CustomExcelReader:
             if not isinstance(idx, int) or not isinstance(unit, int):
                 break
 
-            print(f"Inserting ({idx}) {name} - {unit}  into {product_id}")
+            name = str(name).strip()
+
+            # print(f"Inserting ({idx}) {name} - {unit}  into {product_id}")
             cur.execute(
-                "INSERT OR IGNORE INTO features (name, external_id, per_unit, product_id) VALUES (?, ?, ?, ?)",
+                "INSERT INTO features (name, external_id, per_unit, product_id) VALUES (?, ?, ?, ?)",
                 (name, idx, unit, product_id),
             )
             gap += 1
@@ -124,13 +127,26 @@ class CustomExcelReader:
                 if len(values[i + 1]) > 5 and values[i + 1][5] is not None:
                     handle_type = values[i + 1][5]
 
-                print(
-                    f"Inserting height: {height} & width: {width} & profile_system: {opening_scheme} & color: {color} & handle_type: {handle_type}"
-                )
+                if handle_type == "2-ст ру":
+                    handle_type = "2-ст руч"
+
+                if self.debug:
+                    print(
+                        f"Inserting height: {height} & width: {width} & profile_system: {opening_scheme} & color: {color} & handle_type: {handle_type}"
+                    )
+
+                sheet_name = str(sheet_name).strip()
+                height = str(height).strip()
+                width = str(width).strip()
+                opening_scheme = str(opening_scheme).strip()
+                color = str(color).strip()
+
+                if handle_type:
+                    handle_type = str(handle_type).strip()
 
                 cur.execute(
                     """
-                    INSERT OR IGNORE INTO products (
+                    INSERT INTO products (
                         name,
                         height,
                         width,
@@ -169,14 +185,10 @@ class CustomExcelReader:
             self.extract_products(sheet)
 
 
-excel = CustomExcelReader("Alumark S70.xlsx", "Alumark")
-excel.read_file()
+CustomExcelReader("Alumark S70.xlsx", "Alumark").read_file()
 
-excel = CustomExcelReader("Alutech W62,W72.xlsx", "Alutech")
-excel.read_file()
+CustomExcelReader("Alutech W62,W72.xlsx", "Alutech").read_file()
 
-excel = CustomExcelReader("Krauss KRWD64.xlsx", "Krauss")
-excel.read_file()
+CustomExcelReader("Krauss KRWD64.xlsx", "Krauss").read_file()
 
-excel = CustomExcelReader("Татпроф ТПТ 65.xlsx", "Tatprof")
-excel.read_file()
+CustomExcelReader("Татпроф ТПТ 65.xlsx", "Tatprof").read_file()
