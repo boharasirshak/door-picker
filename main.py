@@ -101,7 +101,7 @@ class InputFrame(ctk.CTkFrame):
         self.handle_type_label.grid(row=0, column=2, padx=5, pady=5)
         self.handle_type_dropdown = ctk.CTkComboBox(
             self.bottom_row,
-            values=["", "2-ст руч"],
+            values=["1-ст руч", "2-ст руч"],
             command=lambda event: handle_handle_type_input(
                 event, self.handle_type_dropdown
             ),
@@ -254,7 +254,7 @@ class App(ctk.CTk):
     height_input: str = "высота 630мм-2400мм"
     width_input: str = "ширина до 3000мм"
     color_input: str = "белый"
-    handle_type_input: str = ""
+    handle_type_input: str = "1-ст руч"
     profile_system_input: str = "Alumark S70"
     img_name: str = "*"
     multiplier_input: str = "1"
@@ -398,13 +398,13 @@ class App(ctk.CTk):
         )
         all_data = res.fetchall()
         if not all_data:
-            # print(
-            #     self.color_input,
-            #     self.handle_type_input,
-            #     self.profile_system_input,
-            #     self.height_input,
-            #     width_input,
-            # )
+            print(
+                self.color_input,
+                self.handle_type_input,
+                self.profile_system_input,
+                self.height_input,
+                width_input,
+            )
             all_data = []
 
         all_images = [data[8] for data in all_data]
