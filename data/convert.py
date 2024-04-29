@@ -163,7 +163,7 @@ class CustomExcelReader:
                         height,
                         width,
                         color or "",
-                        handle_type or "",
+                        handle_type or "1-ст руч",
                         self.path,
                         opening_scheme,
                         image_type + ".png",
