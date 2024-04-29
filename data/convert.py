@@ -82,6 +82,9 @@ class CustomExcelReader:
 
             name = str(name).strip()
 
+            if idx == 490546 or idx == "490546":
+                idx = 794253
+
             # print(f"Inserting ({idx}) {name} - {unit}  into {product_id}")
             cur.execute(
                 "INSERT INTO features (name, external_id, per_unit, product_id) VALUES (?, ?, ?, ?)",
